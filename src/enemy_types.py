@@ -1,11 +1,11 @@
 # src/enemy_types.py
 
-from entities.enemy import Enemy
+from enemy import Enemy
 import config
 import pygame
 import os
 import math
-from entities.enemy_bullet import EnemyBullet
+from enemy_bullet import EnemyBullet
 
 class FastEnemy(Enemy):
     def __init__(self):

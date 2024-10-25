@@ -2,14 +2,15 @@
 
 import pygame
 import random
-from entities.player import Player
-from entities.enemy_types import FastEnemy, StrongEnemy, BalancedEnemy, MeleeEnemy, RangedEnemy
-from entities.health_item import HealthItem
-from entities.power_up_item import PowerUpItem
-from entities.explosion import Explosion
+from player import Player
+from enemy_types import FastEnemy, StrongEnemy, BalancedEnemy, MeleeEnemy, RangedEnemy
+from health_item import HealthItem
+from power_up_item import PowerUpItem
+from explosion import Explosion
 import config
 import os
-from entities.enemy_bullet import EnemyBullet
+from enemy_bullet import EnemyBullet
+
 import math
 
 pygame.init()

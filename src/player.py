@@ -3,8 +3,8 @@
 import pygame
 import config
 import math
-from entities.bullet import Bullet  # เพิ่มการนำเข้าคลาส Bullet
 import os
+from bullet import Bullet
 
 class Player:
     def __init__(self):
