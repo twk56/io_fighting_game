@@ -7,14 +7,26 @@ SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
 
 # ขนาดแผนที่
-MAP_WIDTH = 3000
+MAP_WIDTH = 2000
 MAP_HEIGHT = 2000
+
+# รัศมีขอบเขต (ปรับตามที่คุณต้องการ)
+BOUNDARY_RADIUS = 950  # ตัวอย่างค่า คุณสามารถปรับตามความเหมาะสม
 
 # สีพื้นหลัง (ใช้เป็นสีสำรองหากไม่พบภาพพื้นหลัง)
 BACKGROUND_COLOR = (255, 255, 255)  # สีขาว
 
+# สีอื่นๆ ที่ใช้ในเกม
+COLOR_WHITE = (255, 255, 255)
+COLOR_BLACK = (0, 0, 0)
+COLOR_RED = (255, 0, 0)
+COLOR_GREEN = (0, 255, 0)
+COLOR_BLUE = (0, 0, 255)
+COLOR_YELLOW = (255, 255, 0)
+COLOR_GRAY = (128, 128, 128)
+
 # พาธของภาพพื้นหลัง
-BACKGROUND_IMAGE_PATH = os.path.join('assets', 'images', 'background.jpg')
+BACKGROUND_IMAGE_PATH = os.path.join('assets', 'images', 'background3.jpg')
 
 # สีของผู้เล่น
 PLAYER_COLOR = (0, 128, 255)
@@ -38,8 +50,8 @@ MELEE_ATTACK_RANGE = 50  # พิกเซล
 # ระยะโจมตีสำหรับ RangedEnemy
 RANGED_ATTACK_RANGE = 300  # พิกเซล
 
-# หน่วงเวลาโจมตีของศัตรู (เฟรม)
-ENEMY_ATTACK_COOLDOWN = 60  # 1 วินาทีที่ 60 FPS
+# หน่วงเวลาโจมตีของศัตรู (มิลลิวินาที)
+ENEMY_ATTACK_COOLDOWN = 1000  # 1 วินาทีที่ 60 FPS
 
 # ขนาดแถบชีวิตของศัตรู
 ENEMY_HEALTH_BAR_WIDTH = 50
@@ -62,7 +74,8 @@ HEALTH_ITEM_SIZE = 20
 POWER_UP_COLORS = {
     'speed': (0, 0, 255),
     'damage': (255, 165, 0),
-    'shield': (128, 128, 128)
+    'shield': (128, 128, 128),
+    'gun': (0, 0, 255)  # สีฟาสำหรับปืน
 }
 POWER_UP_SIZE = 20
 
@@ -70,7 +83,7 @@ POWER_UP_SIZE = 20
 score_thresholds = [1000, 2000, 3000, 5000]  # ตัวอย่างคะแนนที่จะเพิ่มระดับความยาก
 
 # ประเภทของ Power-Ups
-power_up_types = ['speed', 'damage', 'shield']
+power_up_types = ['speed', 'damage', 'shield', 'gun']  # เพิ่ม 'gun' เข้าไป
 
 # ความเร็วที่เพิ่มขึ้นเมื่อมีการอัพเกรด
 UPGRADE_SPEED_INCREMENT = 1
@@ -87,7 +100,8 @@ MAX_ENEMIES = 100
 UPGRADE_COSTS = {
     'speed': 500,
     'damage': 500,
-    'shield': 500
+    'shield': 500,
+    'gun': 1000  # ค่าใช้จ่ายสำหรับการอัพเกรดปืน
 }
 
 # ขนาดกระสุนของศัตรู
@@ -104,3 +118,6 @@ PLAYER_SHIELD_BAR_WIDTH = 180
 ITEM_SPAWN_INTERVALS = [30000, 60000]  # 30,000 ms (30 วินาที) และ 60,000 ms (1 นาที)
 ITEMS_PER_SPAWN_MIN = 5
 ITEMS_PER_SPAWN_MAX = 10
+
+# ค่าคงที่สำหรับโหมดปืน
+GUN_DURATION = 10000  # ระยะเวลาใช้งานโหมดปืน (มิลลิวินาที) เช่น 10 วินาที

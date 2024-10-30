@@ -40,7 +40,7 @@ class PowerUpItem:
 
     def collect(self, player):
         # เช็คการชนกับผู้เล่น
-        player_rect = pygame.Rect(player.position[0], player.position[1], player.size, player.size)
+        player_rect = pygame.Rect(player.position[0] - player.size // 2, player.position[1] - player.size // 2, player.size, player.size)
         item_rect = pygame.Rect(self.position[0] - self.size, self.position[1] - self.size, self.size * 2, self.size * 2)
         if player_rect.colliderect(item_rect):
             # ผู้เล่นเก็บไอเทมพลังเสริม

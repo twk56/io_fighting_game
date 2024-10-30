@@ -48,3 +48,8 @@ class Bullet:
         else:
             pygame.draw.circle(screen, self.color, 
                                (int(self.position[0] - camera_x), int(self.position[1] - camera_y)), self.size)
+
+    def is_off_screen(self):
+        """ตรวจสอบว่ากระสุนออกนอกขอบเขตแผนที่หรือไม่"""
+        return (self.position[0] < 0 or self.position[0] > config.MAP_WIDTH or
+                self.position[1] < 0 or self.position[1] > config.MAP_HEIGHT)

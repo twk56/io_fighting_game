@@ -2,18 +2,23 @@
 
 import pygame
 import random
+import math
 from player import Player
-from enemy_types import FastEnemy, StrongEnemy, BalancedEnemy, MeleeEnemy, RangedEnemy
+from enemy_types import FastEnemy, StrongEnemy, BalancedEnemy, MeleeEnemy, RangedEnemy, BossEnemy
 from health_item import HealthItem
 from power_up_item import PowerUpItem
 from explosion import Explosion
+from enemy_bullet import EnemyBullet
+from map import Map  # นำเข้า Map
 import config
 import os
-from enemy_bullet import EnemyBullet
-
-import math
+from utils import check_boundary
 
 pygame.init()
+
+# โหลดเพลงพื้นหลัง
+pygame.mixer.music.load(os.path.join('assets', 'sounds', 'background_music.mp3'))
+pygame.mixer.music.play(-1)  # -1 หมายถึงเล่นซ้ำไม่มีที่สิ้นสุด
 
 # โหลดเสียง
 try:
@@ -30,25 +35,11 @@ except pygame.error as e:
 screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
 pygame.display.set_caption("Fighting .io Game")
 
+# สร้างอินสแตนซ์ของ Map
+game_map = Map()
+
 # สร้างฟอนต์
 font = pygame.font.Font(None, config.FONT_SIZE)
-
-# ฟังก์ชันสำหรับโหลดภาพพื้นหลัง
-def load_background():
-    script_dir = os.path.dirname(__file__)  # ตำแหน่งของไฟล์ main.py
-    image_path = os.path.join(script_dir, '..', config.BACKGROUND_IMAGE_PATH)
-    image_path = os.path.normpath(image_path)  # ปรับเส้นทางให้ถูกต้องตามระบบปฏิบัติการ
-
-    try:
-        background_image = pygame.image.load(image_path)
-        # ปรับขนาดภาพพื้นหลังให้ตรงกับขนาดแผนที่
-        background_image = pygame.transform.scale(background_image, (config.MAP_WIDTH, config.MAP_HEIGHT))
-        return background_image
-    except Exception as e:
-        print(f"ไม่สามารถโหลดภาพพื้นหลังได้: {e}")
-        return None  # คืนค่า None หากไม่สามารถโหลดภาพพื้นหลังได้
-
-background = load_background()
 
 # อ่านคะแนนสูงสุดจากไฟล์
 try:
@@ -90,11 +81,9 @@ def display_notifications():
 
 # ฟังก์ชันแสดงหน้าจอเริ่มต้น
 def show_start_screen():
-    if background:
-        # วาดพื้นหลังทั้งหมด
-        screen.blit(background, (-camera_x, -camera_y))
-    else:
-        screen.fill(config.BACKGROUND_COLOR)
+    # วาดแผนที่
+    game_map.draw(screen, (camera_x, camera_y), config.SCREEN_WIDTH, config.SCREEN_HEIGHT)
+    
     title_text = font.render("Fighting .io Game", True, (0, 0, 0))
     start_text = font.render("Press SPACE to Start", True, (0, 0, 0))
     high_score_text = font.render(f"High Score: {high_score}", True, (0, 0, 0))
@@ -106,10 +95,10 @@ def show_start_screen():
 
 # ฟังก์ชันแสดงหน้าจอเกมโอเวอร์
 def show_game_over_screen(score):
-    if background:
-        screen.blit(background, (-camera_x, -camera_y))
-    else:
-        screen.fill(config.BACKGROUND_COLOR)
+    global high_score
+    # วาดแผนที่
+    game_map.draw(screen, (camera_x, camera_y), config.SCREEN_WIDTH, config.SCREEN_HEIGHT)
+    
     game_over_text = font.render("Game Over", True, (255, 0, 0))
     score_text = font.render(f"Score: {score}", True, (0, 0, 0))
     high_score_text = font.render(f"High Score: {high_score}", True, (0, 0, 0))
@@ -155,7 +144,7 @@ def wait_for_key(key):
 
 # ฟังก์ชันอัพเกรด
 def upgrade_player(upgrade_type):
-    global score
+    global score, upgrades
     if score >= config.UPGRADE_COSTS[upgrade_type]:
         score -= config.UPGRADE_COSTS[upgrade_type]
         upgrades[upgrade_type] += 1
@@ -166,12 +155,16 @@ def upgrade_player(upgrade_type):
         elif upgrade_type == 'shield':
             player.shield += config.UPGRADE_SHIELD_INCREMENT
             player.shield = min(player.shield, config.PLAYER_MAX_SHIELD)
+        elif upgrade_type == 'gun':
+            player.enable_gun_mode()
+            add_notification("Gun Mode Activated!", 2000)
         add_notification(f"Upgraded {upgrade_type.capitalize()}!", 2000)
 
 # ฟังก์ชันแสดงเมนูอัพเกรด
 def show_upgrade_menu():
     upgrade_options = config.power_up_types
     selected = 0
+    
     while True:
         pause_overlay = pygame.Surface((config.SCREEN_WIDTH, config.SCREEN_HEIGHT), pygame.SRCALPHA)
         pause_overlay.fill((50, 50, 50, 200))  # สีเทาเข้มใส
@@ -213,8 +206,8 @@ def reset_game():
     score = 0
     current_level = 1
     next_level_index = 0
-    player = Player()
-    # สร้างศัตรูแบบผสมผสานระหว่าง Melee และ Ranged
+    player = Player(add_notification, (config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
+    player.position = [config.MAP_WIDTH // 2, config.MAP_HEIGHT // 2]
     enemies = []
     for _ in range(2):
         enemies.append(FastEnemy())
@@ -227,7 +220,7 @@ def reset_game():
     health_items = [HealthItem(random.randint(100, 400), random.randint(100, 400)) for _ in range(3)]
     power_up_spawn_positions = [(random.randint(100, 400), random.randint(100, 400)) for _ in range(3)]
     power_ups = [PowerUpItem(random.choice(config.power_up_types), pos) for pos in power_up_spawn_positions]
-    upgrades = {'speed': 0, 'damage': 0, 'shield': 0}
+    upgrades = {upgrade: 0 for upgrade in config.power_up_types}
     
     # ตั้งค่า Timer สำหรับการสุ่มไอเทมครั้งแรกเป็น 30 วินาที
     current_item_spawn_interval = config.ITEM_SPAWN_INTERVALS[0]  # เริ่มต้นด้วย 30,000 มิลลิวินาที (30 วินาที)
@@ -247,12 +240,15 @@ def increase_difficulty():
     for enemy in enemies:
         enemy.speed += 0.5
 
+# ฟอนต์ใหม่สำหรับ HUD
+font = pygame.font.Font('assets/fonts/Popcat.otf', 20)
+
 # ฟังก์ชันแสดง HUD
 def draw_hud():
     """แสดง HUD ของเกมให้ดูสวยงามและชัดเจน"""
 
     # วาดกรอบพื้นหลังสีดำใสสำหรับ HUD
-    hud_surface = pygame.Surface((220, 350), pygame.SRCALPHA)
+    hud_surface = pygame.Surface((220, 400), pygame.SRCALPHA)
     hud_surface.fill(config.HUD_BACKGROUND_COLOR)  # สีดำใส
     screen.blit(hud_surface, (10, 10))
 
@@ -296,8 +292,14 @@ def draw_hud():
     upgrade_text = font.render("Upgrades:", True, (255, 255, 255))
     screen.blit(upgrade_text, (20, 280))
     for i, (upgrade, level) in enumerate(upgrades.items()):
-        text = font.render(f"{upgrade.capitalize()}: {level}", True, config.POWER_UP_COLORS[upgrade])
+        color = config.POWER_UP_COLORS.get(upgrade, (255, 255, 255))
+        text = font.render(f"{upgrade.capitalize()} : {level}", True, color)
         screen.blit(text, (20, 310 + i * 30))
+    
+    # แสดงสถานะ Gun Mode (ถ้าใช้งาน)
+    if player.gun_mode:
+        gun_text = font.render("Gun Mode!", True, (255, 255, 0))
+        screen.blit(gun_text, (20, 400))  # ปรับตำแหน่งตามต้องการ
 
 # ฟังก์ชันแสดงเอฟเฟกต์การระเบิด
 def handle_explosions():
@@ -317,6 +319,7 @@ SPAWN_ITEM_EVENT = pygame.USEREVENT + 2
 
 # ตัวแปรสำหรับการตั้งค่า Timer การสุ่มไอเทม
 current_item_spawn_interval = config.ITEM_SPAWN_INTERVALS[0]  # เริ่มต้นด้วย 30,000 มิลลิวินาที (30 วินาที)
+pygame.time.set_timer(SPAWN_ITEM_EVENT, current_item_spawn_interval)
 
 # เพิ่มลิสต์สำหรับกระสุนของศัตรู
 enemy_bullets = []
@@ -335,6 +338,10 @@ camera_y = 0
 # แสดงหน้าจอเริ่มต้น
 show_start_screen()
 
+# สร้างบอส
+boss = BossEnemy()  # สร้างบอส
+boss.position = [400, 300]  # กำหนดตำแหน่งเริ่มต้น
+boss.rect.topleft = boss.position  # กำหนด rect ของบอส
 # ลูปหลัก
 clock = pygame.time.Clock()
 while True:
@@ -344,21 +351,25 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
+             
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_p:
                 show_pause_screen()
             if event.key == pygame.K_u:
                 show_upgrade_menu()
+
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 mouse_pos = pygame.mouse.get_pos()
                 adjusted_mouse_pos = (mouse_pos[0] + camera_x, mouse_pos[1] + camera_y)
-                bullets.append(player.shoot(adjusted_mouse_pos))
+                new_bullets = player.shoot(adjusted_mouse_pos)
+                bullets.extend(new_bullets)
                 if shoot_sound:
                     shoot_sound.play()
                 # ตั้งค่าสถานะการโจมตีของผู้เล่น
                 player_attacking = True
                 player_attack_time = pygame.time.get_ticks()
+
         # ตรวจสอบการเกิดของ SPAWN_ENEMY_EVENT
         if event.type == SPAWN_ENEMY_EVENT:
             # สุ่มประเภทของศัตรูที่จะสร้าง 5 ตัว
@@ -367,51 +378,10 @@ while True:
                     enemies.append(random.choice([FastEnemy(), StrongEnemy(), BalancedEnemy(), MeleeEnemy(), RangedEnemy()]))
             # เพิ่ม Notification ว่ามีศัตรูใหม่เกิดขึ้น
             add_notification(f"5 Enemies spawned!", 2000)
-        # ตรวจสอบการเกิดของ SPAWN_ITEM_EVENT
-        if event.type == SPAWN_ITEM_EVENT:
-            # สุ่มจำนวนไอเทมที่จะสร้าง (ตัวอย่าง: สุ่มระหว่าง 1-3 ไอเทม)
-            num_items_to_spawn = random.randint(config.ITEMS_PER_SPAWN_MIN, config.ITEMS_PER_SPAWN_MAX)
-            for _ in range(num_items_to_spawn):
-                # สุ่มประเภทไอเทม (Health หรือ Power-Up)
-                item_type = random.choice(['health', 'power_up'])
-                x = random.randint(100, config.MAP_WIDTH - 100)
-                y = random.randint(100, config.MAP_HEIGHT - 100)
-                if item_type == 'health':
-                    health_items.append(HealthItem(x, y))
-                    add_notification("Health Item Spawned!", 2000)
-                else:
-                    power_up_type = random.choice(config.power_up_types)
-                    power_ups.append(PowerUpItem(power_up_type, (x, y)))
-                    add_notification(f"{power_up_type.capitalize()} Power-Up Spawned!", 2000)
-            
-            # สลับระยะเวลาในการสุ่มไอเทมครั้งต่อไป
-            if current_item_spawn_interval == config.ITEM_SPAWN_INTERVALS[0]:
-                current_item_spawn_interval = config.ITEM_SPAWN_INTERVALS[1]  # เปลี่ยนเป็น 60,000 มิลลิวินาที (1 นาที)
-            else:
-                current_item_spawn_interval = config.ITEM_SPAWN_INTERVALS[0]  # เปลี่ยนเป็น 30,000 มิลลิวินาที (30 วินาที)
-            
-            # ตั้งค่า Timer สำหรับการสุ่มไอเทมครั้งต่อไป
-            pygame.time.set_timer(SPAWN_ITEM_EVENT, current_item_spawn_interval)
 
-    # อัพเดตสถานะการโจมตีของผู้เล่น
-    current_time = pygame.time.get_ticks()
-    if player_attacking and current_time - player_attack_time > attack_duration:
-        player_attacking = False
-
-    # วาดพื้นหลัง
-    if background:
-        # คำนวณตำแหน่งของพื้นหลังตามกล้อง
-        screen.blit(background, (-camera_x, -camera_y))
-    else:
-        # ใช้สีพื้นหลังถ้าไม่พบภาพพื้นหลัง
-        screen.fill(config.BACKGROUND_COLOR)
-
-    # เรียกแสดง HUD และ Notifications
-    draw_hud()
-    display_notifications()
-
-    # การแสดงเอฟเฟกต์การระเบิด
-    handle_explosions()
+        # ตรวจสอบระดับเพื่อเพิ่มบอส
+        if current_level >= 1 and boss not in enemies:
+            enemies.append(boss)  # เพิ่มบอสในศัตรู
 
     # อัพเดตตำแหน่งกล้อง
     camera_x = player.position[0] - config.SCREEN_WIDTH // 2
@@ -419,17 +389,16 @@ while True:
     camera_x = max(0, min(camera_x, config.MAP_WIDTH - config.SCREEN_WIDTH))
     camera_y = max(0, min(camera_y, config.MAP_HEIGHT - config.SCREEN_HEIGHT))
 
-    # อัพเดตผู้เล่น
-    player.update()
-    player.draw(screen, camera_x, camera_y)
+    # วาดแผนที่
+    game_map.draw(screen, (camera_x, camera_y), config.SCREEN_WIDTH, config.SCREEN_HEIGHT)
 
-    # ตรวจสอบคะแนนเพื่อเพิ่มความยาก
-    if next_level_index < len(score_thresholds) and score >= score_thresholds[next_level_index]:
-        increase_difficulty()
-
-    # อัพเดตศัตรู
+    # อัพเดตและวาดศัตรู
     for enemy in enemies[:]:
-        attack = enemy.update(player.position, player_attacking)
+        if isinstance(enemy, BossEnemy):
+            attack = enemy.update()
+        else:
+            attack = enemy.update(player.position, player_attacking)
+        
         if isinstance(attack, EnemyBullet):
             enemy_bullets.append(attack)
         elif attack:  # if attack is True (melee attack)
@@ -441,7 +410,35 @@ while True:
                     with open("highscore.txt", "w") as file:
                         file.write(str(high_score))
                 reset_game()
-        enemy.draw(screen, camera_x, camera_y)
+        
+        enemy.draw(screen, camera_x, camera_y)  # วาดศัตรู
+        
+        if isinstance(enemy, BossEnemy) and not enemy.is_alive:  # ตรวจสอบว่าบอสตายไหมและลบออกจาก enemies
+            enemies.remove(enemy)  # ลบบอสออกจากรายการศัตรูไ
+
+    # วาดผู้เล่น
+    if player.image:
+        screen.blit(player.image, (player.position[0] - camera_x, player.position[1] - camera_y))
+        
+    # อัพเดตสถานะการโจมตีของผู้เล่น
+    current_time = pygame.time.get_ticks()
+    if player_attacking and current_time - player_attack_time > attack_duration:
+        player_attacking = False
+
+    # เรียกแสดง HUD และ Notifications
+    draw_hud()
+    display_notifications()
+
+    # การแสดงเอฟเฟกต์การระเบิด
+    handle_explosions()
+
+    # อัพเดตผู้เล่น
+    player.update()
+    player.draw(screen, camera_x, camera_y)
+
+    # ตรวจสอบคะแนนเพื่อเพิ่มความยาก
+    if next_level_index < len(score_thresholds) and score >= score_thresholds[next_level_index]:
+        increase_difficulty()
 
     # อัพเดตกระสุนของผู้เล่น
     for bullet in bullets[:]:
@@ -466,6 +463,9 @@ while True:
                             explosion_sound.play()
                         explosions.append(Explosion(enemy.position))
                     break  # กระสุนชนกับศัตรูแล้วไม่ต้องตรวจสอบศัตรูอื่น
+        # ลบกระสุนที่ออกนอกหน้าจอ
+        if bullet.is_off_screen():
+            bullets.remove(bullet)
 
     # อัพเดตกระสุนของศัตรู (ถ้ามี)
     for enemy_bullet in enemy_bullets[:]:
@@ -511,12 +511,12 @@ while True:
                     player.speed += 1
                 elif power_up.type == 'damage':
                     player.damage += 1
+                elif power_up.type == 'gun':
+                    player.enable_gun_mode()
+                    # Notification ถูกเรียกภายใน Player
                 power_ups.remove(power_up)
                 add_notification(f"Collected {power_up.type.capitalize()} Power-Up!", 2000)
         else:
             power_ups.remove(power_up)  # ลบไอเท็มที่ไม่ใช้งานออก
-
-    # อัพเดตพลังชีวิตของผู้เล่น
-    player.regenerate_shield()
 
     pygame.display.flip()
