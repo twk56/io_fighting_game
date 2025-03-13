@@ -6,8 +6,8 @@ import math
 import os
 
 class HealthItem:
-    def __init__(self, x, y):
-        self.position = [x, y]
+    def __init__(self, position):
+        self.position = list(position)
         self.size = config.HEALTH_ITEM_SIZE
         self.color = config.HEALTH_ITEM_COLOR
         self.is_active = True
